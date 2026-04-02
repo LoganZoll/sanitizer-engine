@@ -100,3 +100,42 @@ update_job_request_status() {
     WHERE id = ${job_id};
   "
 }
+
+# Read only the latest PENDING job_request record
+read_latest_pending_job_request() {
+  run_mysql "
+    SELECT
+      id,
+      COALESCE(file_name, ''),
+      COALESCE(file_content_content_type, ''),
+      REPLACE(TO_BASE64(file_content), '\n', '')
+    FROM job_request
+    WHERE status = 'PENDING'
+    ORDER BY id DESC
+    LIMIT 1;
+  "
+}
+
+# Insert a progress record into job_execution_report
+# Usage: insert_execution_report <job_request_id> <user_id> <status> <log_message>
+insert_execution_report() {
+  local job_request_id="$1"
+  local user_id="$2"
+  local status="$3"
+  local log_message="$4"
+  local execution_node
+  execution_node="$(hostname)"
+
+  run_mysql "
+    INSERT INTO job_execution_report
+      (start_time, execution_node, execution_log, status, job_request_id, user_id)
+    VALUES
+      (NOW(6), '${execution_node}',
+       '$(echo "${log_message}" | sed "s/'/\\\\'/g")',
+       '${status}', ${job_request_id}, ${user_id})
+    ON DUPLICATE KEY UPDATE
+      end_time      = NOW(6),
+      execution_log = CONCAT(IFNULL(execution_log, ''), '\n', '$(echo "${log_message}" | sed "s/'/\\\\'/g")'),
+      status        = '${status}';
+  "
+}
