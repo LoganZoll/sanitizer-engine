@@ -49,6 +49,15 @@ sanitize_base64() {
 
     # 2. Antivirus (ClamAV)
     # Using --infected to only output if a virus is found
+    if command -v clamscan >/dev/null 2>&1; then
+        CLAM_OUTPUT=$(clamscan --no-summary "$RAW_FILE" 2>/dev/null)
+        if echo "$CLAM_OUTPUT" | grep -q "FOUND"; then
+            echo "{\"job_id\": \"$SAFE_JOB_ID\", \"status\": \"REJECTED\", \"threat\": \"ClamAV detected malware\"}"
+            update_job_request_status "$SAFE_JOB_ID" "$STATUS_FAILED_SANITIZATION"
+            rm -rf "$JOB_DIR"
+            return 1
+        fi
+    fi
 
 
     # 3. YARA Analysis
@@ -75,7 +84,11 @@ sanitize_base64() {
             ;;
         text/html|application/json|text/x-log|application/vnd.tcpdump.pcap|text/plain)
             # Call our Python helper for structured/complex data
-            
+            if ! python3 "$(dirname "$0")/complex_sanitizer.py" "$RAW_FILE" "$CLEAN_FILE"; then
+                update_job_request_status "$SAFE_JOB_ID" "$STATUS_FAILED_SANITIZATION"
+                rm -rf "$JOB_DIR"
+                return 1
+            fi
             ;;
         *)
             # Fallback: Strip dangerous control characters (Null, ESC, etc.)
