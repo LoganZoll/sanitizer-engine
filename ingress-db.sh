@@ -2,7 +2,7 @@
 set -euo pipefail
 set -o pipefail
 
-FILE="samplescript/2-csv-20260316221533.csv"
+FILE="samplescript/eicar_test.txt"
 DB_NAME="sanitizer_db"
 PRIORITY="1"
 USER_ID="2"
