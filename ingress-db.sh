@@ -2,7 +2,7 @@
 set -euo pipefail
 set -o pipefail
 
-FILE="samplefiles/eicar_test.txt"
+FILE="samplefiles/2-csv-20260316221533.csv"
 DB_NAME="sanitizer_db"
 PRIORITY="1"
 USER_ID="2"
@@ -21,6 +21,23 @@ source "${SCRIPT_DIR}/libs/san_lib.sh"
 echo "[INFO] Encoding file: $FILE"
 B64_DATA="$(base64 < "$FILE" | tr -d '\n')"
 echo "[INFO] File encoded successfully."
+
+echo "[INFO] Encoding file: $FILE"
+B64_DATA="$(base64 < "$FILE" | tr -d '\n')"
+echo "[INFO] File encoded successfully."
+
+# Run YARA scan on the decoded binary data
+if echo "$B64_DATA" | base64 -d | python3 "${SCRIPT_DIR}/samplescript/yarax_scan.py" "${SCRIPT_DIR}/rules/"; then
+    echo "[INFO] YARA scan passed."
+else
+    echo "[BLOCK] THREAT DETECTED. Aborting database insertion."
+    exit 1
+fi
+
+# Insert job request
+echo "[INFO] Inserting job request into database..."
+insert_job_request "$B64_DATA"
+echo "[INFO] Job request inserted."
 
 # Insert job request
 echo "[INFO] Inserting job request into database..."
